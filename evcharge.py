@@ -93,6 +93,7 @@ def main():
   global duty, nexttime
   duty =1023
   CPvalue = 0
+  CPerror  = False
   relayoff()
   ControlPilot.duty(CPidle)
   sleep_ms(100)
@@ -108,10 +109,12 @@ def main():
       if checkCPstate(EVnoconnect,CPvalue):
         relayoff()
         ControlPilot.duty(1023)
+        CPerror = False
         dotstar[0] =(100, 100, 150)
       elif checkCPstate(EVready,CPvalue):
         relayoff()
         ControlPilot.duty(duty)
+        CPerror = False
         dotstar[0] =(0, 0, 150)
       elif checkCPstate(EVcharging,CPvalue):
         relayon()
@@ -120,9 +123,12 @@ def main():
   #      ControlPilot.duty(100)
         dotstar[0] =(0, 150, 0)
       else:  #error
-  #      relayoff
-  #      ControlPilot.duty(1023)
-        dotstar[0] = (150, 0, 0)
+        if CPerror == True:
+          relayoff()
+          ControlPilot.duty(1023)
+          dotstar[0] = (150, 0, 0)
+
+        CPerror = True
 
       sleep_ms(500)
 
