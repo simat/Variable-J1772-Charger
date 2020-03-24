@@ -5,7 +5,7 @@ This project can be used to make a J1772 Electic Vehicle charger that will vary 
 
 I am using this in an off-grid power system where my Beaglebone Black demand management controller running software in this project https://github.com/simat/BatteryMonitor sends information via an HTML file specififying the amount of excess energy available from my solar panels when the battery has reached a set SOC.
 
-The format of the HTML file is fairly simple
+The format of the HTML file is fairly simple  
 Current Time 20200324093459  
 Timestamp 20200324093400  
 Excess solar power available -684W  
