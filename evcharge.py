@@ -90,46 +90,51 @@ def calcduty():
 
 
 def main():
-  global duty, nexttime
-  duty =1023
-  CPvalue = 0
-  CPerror  = False
-  relayoff()
-  ControlPilot.duty(CPidle)
-  sleep_ms(100)
-  while True:
-    calcduty()
-    message='CP value={} CP duty={} ChargeI={} Delta={}'.format(CPvalue,ControlPilot.duty(),ChargeI,delta)
-    print (message)
-    for i in range(nexttime*2):
-      CPvalue=readCP()
+  try:
+    global duty, nexttime
+    duty =1023
+    CPvalue = 0
+    CPerror  = False
+    relayoff()
+    ControlPilot.duty(CPidle)
+    sleep_ms(100)
+    while True:
+      calcduty()
       message='CP value={} CP duty={} ChargeI={} Delta={}'.format(CPvalue,ControlPilot.duty(),ChargeI,delta)
-      sendhtml(message)
-      print(CPvalue,end='\r')
-      if checkCPstate(EVnoconnect,CPvalue):
-        relayoff()
-        ControlPilot.duty(1023)
-        CPerror = False
-        dotstar[0] =(100, 100, 150)
-      elif checkCPstate(EVready,CPvalue):
-        relayoff()
-        ControlPilot.duty(duty)
-        CPerror = False
-        dotstar[0] =(0, 0, 150)
-      elif checkCPstate(EVcharging,CPvalue):
-        relayon()
-
-        ControlPilot.duty(duty)
-  #      ControlPilot.duty(100)
-        dotstar[0] =(0, 150, 0)
-      else:  #error
-        if CPerror == True:
+      print (message)
+      for i in range(nexttime*2):
+        CPvalue=readCP()
+        message='CP value={} CP duty={} ChargeI={} Delta={}'.format(CPvalue,ControlPilot.duty(),ChargeI,delta)
+        sendhtml(message)
+        print(CPvalue,end='\r')
+        if checkCPstate(EVnoconnect,CPvalue):
           relayoff()
           ControlPilot.duty(1023)
-          dotstar[0] = (150, 0, 0)
+          CPerror = False
+          dotstar[0] =(100, 100, 150)
+        elif checkCPstate(EVready,CPvalue):
+          relayoff()
+          ControlPilot.duty(duty)
+          CPerror = False
+          dotstar[0] =(0, 0, 150)
+        elif checkCPstate(EVcharging,CPvalue):
+          relayon()
 
-        CPerror = True
+          ControlPilot.duty(duty)
+    #      ControlPilot.duty(100)
+          dotstar[0] =(0, 150, 0)
+        else:  #error
+          if CPerror == True:
+            relayoff()
+            ControlPilot.duty(1023)
+            dotstar[0] = (150, 0, 0)
 
-      sleep_ms(500)
+          CPerror = True
+
+        sleep_ms(500)
+  except Exception as e:
+    from sys import open
+    with open("error.log", "a") as f:
+      sys.print_exception(e, f)
 
 main()
