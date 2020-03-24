@@ -133,7 +133,7 @@ def main():
 
         sleep_ms(500)
   except Exception as e:
-    from sys import open
+    import sys
     with open("error.log", "a") as f:
       sys.print_exception(e, f)
 
