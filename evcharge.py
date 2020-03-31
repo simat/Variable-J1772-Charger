@@ -1,4 +1,20 @@
-from machine import Pin, PWM, ADC, SPI, WDT
+# *****J1772 EV charge controller main file evcharge.py*****
+# Copyright (C) 2020 Simon Richard Matthews
+# Project loaction https://github.com/simat/Variable-J1772-Charger
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# any later version.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+
+from machine import Pin, PWM, ADC, SPI, WDT, RTC
 from time import sleep_ms, sleep_us
 import tinypico as TinyPICO
 from dotstar import DotStar
@@ -31,6 +47,7 @@ VMains = 230.0 # mains voltage
 duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
 nexttime =0 # seconds till next HTML sample
+timestamp=''
 
 def readCP():
   """Return voltage on CP line
@@ -77,13 +94,13 @@ def relayoff():
 
 def calcduty():
   """calculates new duty cycle after getting change variation from web"""
-  global ChargeI,duty, delta, nexttime
-  delta, nexttime=deltapwr()
+  global ChargeI,duty, delta, nexttime, timestamp
+  delta, nexttime,timestamp =deltapwr()
   ChargeI=min(max(ChargeI+delta/(1.5*VMains),0.0),ChargeIMax)
-  if ChargeI == 0.0 and delta < -3000:
+  if ChargeI == 0.0 and delta < -3000.0:
     duty=1023
   elif ChargeI > 6.0:
-    duty=int(511*ChargeI/30)
+    duty=int(511*ChargeI/30.0)
   else:
     if duty != 1023:
       duty = 100
@@ -91,12 +108,16 @@ def calcduty():
 
 def main():
   try:
-    global duty, nexttime
+    global duty, nexttime, timestamp
     duty =1023
     CPvalue = 0
     CPerror  = False
     relayoff()
     ControlPilot.duty(CPidle)
+    _,_,timestamp=deltapwr()
+    rtc=RTC()
+    rtc.init((int(timestamp[0:4]),int(timestamp[4:6]),int(timestamp[6:8]), \
+             int(timestamp[8:10]),int(timestamp[10:12]),int(timestamp[12:14]),0,0))
     sleep_ms(100)
     while True:
       calcduty()
@@ -125,8 +146,8 @@ def main():
           dotstar[0] =(0, 150, 0)
         else:  #error
           if CPerror == True:
-            relayoff()
-            ControlPilot.duty(1023)
+#            relayoff()
+#            ControlPilot.duty(1023)
             dotstar[0] = (150, 0, 0)
 
           CPerror = True
@@ -134,7 +155,9 @@ def main():
         sleep_ms(500)
   except Exception as e:
     import sys
+
     with open("error.log", "a") as f:
+      f.write(timestamp+'\n')
       sys.print_exception(e, f)
 
 main()

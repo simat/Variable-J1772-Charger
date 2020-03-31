@@ -1,3 +1,19 @@
+# *****J1772 EV charge controller network routines net.py*****
+# Copyright (C) 2020 Simon Richard Matthews
+# Project loaction https://github.com/simat/Variable-J1772-Charger
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# any later version.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+
 import socket
 from select import poll,POLLIN
 
@@ -19,14 +35,13 @@ def sendhtml(message):
     cl.send(message)
     cl.close()
 
-lasttime =0
 numerrors =0
 nexttime =0
-
+lasttime = ''
 def deltapwr():
   """returns delta power level from net"""
 
-  global lasttime, numerrors, nexttime
+  global lasttime, numerrors, nexttime, lasttime
 
   try:
     s=socket.socket()
@@ -42,12 +57,12 @@ def deltapwr():
     currenttime=int(data[index+13:index+27])
     data=data[index+29:-1]
     index=data.index('Timestamp')
-    timestamp=int(data[index+10:index+24])
-    nexttime=max(min(timestamp-currenttime+61,65),10)
+    timestamp=data[index+10:index+24]
+    nexttime=max(min(int(timestamp)-currenttime+61,65),10)
     data=data[index+25:-1]
     data=data.split('</p>\n')
-    line1=int(data[1][31:data[1].index('W')])
-    line2=int(data[2][31:data[2].index('W')])
+    line1=float(data[1][31:data[1].index('W')])
+    line2=float(data[2][31:data[2].index('W')])
   except:
     pass
   print (currenttime, timestamp, nexttime, data[1])
@@ -62,4 +77,4 @@ def deltapwr():
     lasttime=timestamp
     delta=line1
 
-  return delta, nexttime
+  return delta, nexttime, timestamp
