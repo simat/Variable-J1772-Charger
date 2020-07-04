@@ -14,12 +14,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-from machine import Pin, PWM, ADC, SPI, WDT, RTC
-from time import sleep_ms, sleep_us
+from machine import Pin, PWM, ADC, SPI, WDT, RTC, reset
+from time import sleep_ms, sleep_us, time, localtime
 import tinypico as TinyPICO
 from dotstar import DotStar
 from net import deltapwr,sendhtml
-
+from logger import log, localtimestamp, maketimestamp, updatetotals, logexception
+from os import remove
 # watchdog=WDT(timeout=600000) # timeout 10 minutes
 spi = SPI(sck=Pin( TinyPICO.DOTSTAR_CLK ), mosi=Pin( TinyPICO.DOTSTAR_DATA ), miso=Pin( TinyPICO.SPI_MISO) )
 dotstar = DotStar(spi, 1, brightness = 0.8 ) # Just one DotStar, half brightness
@@ -28,7 +29,7 @@ TinyPICO.set_dotstar_power( True )
 dotstar[0] = ( 0, 0, 0)
 
 CPidle=1023
-EVnoconnect= 237 # 12V on CP line
+EVnoconnect= 248 # 12V on CP line
 EVready= 155 # EV ready for charge
 EVcharging= 85
 onevolt = (EVnoconnect-EVready)/3
@@ -48,6 +49,12 @@ duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
 nexttime =0 # seconds till next HTML sample
 timestamp=''
+currenttime=0
+energytotal =0.0
+chargestarttime=0
+dayenergy=0.0 #current days energy production
+
+
 
 def readCP():
   """Return voltage on CP line
@@ -105,27 +112,57 @@ def calcduty():
     if duty != 1023:
       duty = 100
 
+def stopcharge():
+  global energytotal, currenttime, chargestarttime
+  """store energy sent to car for last charging session"""
+
+  updatetotals(energytotal)
+  log('energy',' {:.3f}kWh Charge Start{} Charge Time {:.1f} hr'.format(energytotal,maketimestamp(localtime(chargestarttime)),(time()-chargestarttime)/3600))
+  try:
+    f=open('energyday.log','r')
+    pos=f.seek(-100,2)
+    enddata=f.read()
+    pos=enddata.index('\n')
+    if enddata[pos+1:pos+9]==localtimestamp()[0:8]:
+      pass
+  except:
+    pass
+
+  energytotal =0.0
 
 def main():
   try:
-    global duty, nexttime, timestamp
+    global duty, nexttime, timestamp, currenttime, energytotal, chargestarttime, dayenergy
+
+    dayenergy=0.0
+    energytotal = 0.0
     duty =1023
     CPvalue = 0
     CPerror  = False
+    state = 0 # charge state 1=Not connected, 2=EV connected, 3=EV charge, 4= Error
+    lasttime=0
     relayoff()
     ControlPilot.duty(CPidle)
     _,_,timestamp=deltapwr()
+    print(timestamp)
     rtc=RTC()
-    rtc.init((int(timestamp[0:4]),int(timestamp[4:6]),int(timestamp[6:8]), \
-             int(timestamp[8:10]),int(timestamp[10:12]),int(timestamp[12:14]),0,0))
+    rtc.init((int(timestamp[0:4]),int(timestamp[4:6]),int(timestamp[6:8]),0, \
+             int(timestamp[8:10]),int(timestamp[10:12]),int(timestamp[12:14]),0))
     sleep_ms(100)
+    try:
+      remove('log.log')
+    except:
+      pass
     while True:
       calcduty()
-      message='CP value={} CP duty={} ChargeI={} Delta={}'.format(CPvalue,ControlPilot.duty(),ChargeI,delta)
+      message='CP value={} CP duty={} ChargeI={} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
+              .format(CPvalue,ControlPilot.duty(),ChargeI,delta,state,energytotal,dayenergy)
       print (message)
+      log('log',message)
       for i in range(nexttime*2):
         CPvalue=readCP()
-        message='CP value={} CP duty={} ChargeI={} Delta={}'.format(CPvalue,ControlPilot.duty(),ChargeI,delta)
+        message='Timestamp {}\nCP value={} CP duty={} ChargeI={} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
+                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,delta,state,energytotal,dayenergy)
         sendhtml(message)
         print(CPvalue,end='\r')
         if checkCPstate(EVnoconnect,CPvalue):
@@ -133,31 +170,63 @@ def main():
           ControlPilot.duty(1023)
           CPerror = False
           dotstar[0] =(100, 100, 150)
+          if  state != 1:
+            log('events','EV not connected')
+            if state == 3:
+              print('at no connect')
+              stopcharge()
+            state = 1
+
         elif checkCPstate(EVready,CPvalue):
           relayoff()
           ControlPilot.duty(duty)
           CPerror = False
           dotstar[0] =(0, 0, 150)
+          if state != 2:
+            log('events','EV ready')
+            if state == 3:
+              stopcharge()
+            state =2
         elif checkCPstate(EVcharging,CPvalue):
           relayon()
-
           ControlPilot.duty(duty)
-    #      ControlPilot.duty(100)
+          CPerror = False
           dotstar[0] =(0, 150, 0)
+          currenttime=time()
+          if state != 3:
+            log('events','EV charging')
+            lastt=localtime(lasttime)
+            currt=localtime(currenttime)
+            if lastt[0]!=currt[0] or lastt[1]!=currt[1] or lastt[2]!=currt[2]:
+              dayenergy=0.0
+            state =3
+            lasttime=currenttime
+            chargestarttime=lasttime
+
+          if duty !=1023:
+            charge=30*duty/511
+            energydelta=min(charge,16.0)*VMains*(currenttime-lasttime)/3600000
+            energytotal+=energydelta
+            dayenergy+=energydelta
+          lasttime=currenttime
+
         else:  #error
-          if CPerror == True:
-#            relayoff()
-#            ControlPilot.duty(1023)
+          if CPerror == False:
+            CPerror = True
+          else:
+            relayoff()
+            ControlPilot.duty(1023)
             dotstar[0] = (150, 0, 0)
-
-          CPerror = True
-
+            if state !=4:
+              log('events',"CP error")
+              if state ==3:
+                print ('at error')
+                stopcharge()
+              state =4
         sleep_ms(500)
   except Exception as e:
-    import sys
+    logexception(e)
+    raise
+#    reset()
 
-    with open("error.log", "a") as f:
-      f.write(timestamp+'\n')
-      sys.print_exception(e, f)
-
-main()
+# main()
