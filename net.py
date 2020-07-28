@@ -31,7 +31,7 @@ def sendhtml(message):
   if res:
     try:
       cl, addr = s.accept()
-  #    print('client connected from', addr)
+#      print('client info', cl.recv(100))
       cl_file = cl.makefile('rwb', 0)
       cl.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
       cl.send(message)

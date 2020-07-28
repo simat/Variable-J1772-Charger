@@ -19,6 +19,8 @@ from time import localtime, time, mktime
 from machine import RTC
 import os
 
+energyrecsize=50  # size of charge session log entry in energy.log
+
 """logs = ('events','errors')
 
 for i in logs:
@@ -62,58 +64,79 @@ def logexception(exception):
   except:
     print('IO error during exception log write')
 
-def updatetotals(energy):
+def updatetotals(energy,stopday):
   """Updates the charge totals and averages, call at the end of each charge cycle"""
   global dayenergy
-  with open("EnergyStats",'+') as f:
-    lines=[]
-    for i in range(10):
-      lines.append(f.readline())
-    lasttime=eval(lines[0][17:-1])
-    gtotal=float(lines[1][13:-4])
-    lastyear=float(lines[2][13:-4])
-    last30days=float(lines[3][13:-4])
-    last5days=float(lines[4][13:-4])
-    currentday=float(lines[5][13:-4])
-    lastsession=float(lines[6][13:-4])
-    dayav90days=float(lines[7][31:-4])
-    dayav30days=float(lines[8][31:-4])
-    dayav5days=float(lines[9][31:-4])
-    currenttime=time()
-    deltaday=(time()-mktime(lasttime))/86400
-    currenttime=localtime(currenttime)
-    lastsession=energy
-    if lasttime[2]==currenttime[2] and lasttime[1]==currenttime[1] and lasttime[0]==currenttime[0]:
-      currentday+=lastsession
-    else:
-      dayav90days=(dayav90days*89+currentday)/90
-      dayav30days=(dayav30days*29+currentday)/30
-      dayav5days=(dayav5days*4+currentday)/5
-      currentday=lastsession
-      dayenergy=0.0
-    if deltaday>5:
-      last5days=lastsession
-    else:
-      last5days+=lastsession
-    if deltaday>30:
-      last30days=lastsession
-    else:
-      last30days+=lastsession
-    if deltaday>365:
-      lastyear=lastsession
-    else:
-      lastyear+=lastsession
-    gtotal+=lastsession
+  totyear=0.0
+  cntyear=1
+  tot90day=0.0
+  cnt90day=1
+  tot30day=0.0
+  cnt30day=1
+  tot5day=0.0
+  cnt5day=1
+  tot1day=0.0
+  cnt1day=1
+  try:
+    with open("energy.log",'r') as f:
+      f.seek(-energyrecsize,2) # point to last entry
+      entry=f.read(energyrecsize)
+      print (entry,entry[15:19])
+      lastsession=float(entry[20:27])
+      cursession=int(entry[15:19])
+      prevsession=cursession
+      deltaday=stopday-cursession
 
-    line1="Last Update Time {}".format(currenttime)
-    line2="Grand Total  {:>7.1f}kWh".format(gtotal)
-    line3="Last Year    {:>7.1f}kWh".format(lastyear)
-    line4="Last 30 Days {:>7.1f}kWh".format(last30days)
-    line5="Last 5 Days  {:>7.1f}kWh".format(last5days)
-    line6="Current Day  {:>7.1f}kWh".format(currentday)
-    line7="Last Session {:>7.1f}kWh".format(lastsession)
-    line8="Running daily Av. over 90 days {:>4.4f}kWh".format(dayav90days)
-    line9="Running daily Av. over 30 days {:>4.4f}kWh".format(dayav30days)
-    line10="Running daily Av. over 5 days  {:>4.4f}kWh".format(dayav5days)
-    f.seek(0)
-    f.write("{0}\n{1}\n{2}\n{3}\n{4}\n{5}\n{6}\n{7}\n{8}\n{9}\n".format(line1,line2,line3,line4,line5,line6,line7,line8,line9,line10))
+      try:
+        while deltaday<365:
+          energy=float(entry[20:27])
+          sameday= cursession-prevsession
+          totyear+=energy
+          if sameday != 0:
+            cntyear+=1
+          if deltaday<90:
+            tot90day+=energy
+            if sameday != 0:
+              cnt90day+=1
+          if deltaday<30:
+            tot30day+=energy
+            if sameday != 0:
+              cnt30day+=1
+          if deltaday<5:
+            tot5day+=energy
+            if sameday != 0:
+              cnt5day+=1
+          if deltaday==0:
+            tot1day+=energy
+            cnt1day+=1
+          prevsession=cursession
+          f.seek(-2*energyrecsize,1)
+          entry=f.read(energyrecsize)
+          print(entry,entry[15:19])
+          cursession=int(entry[15:19]) # date of next charge session
+          deltaday=stopday-cursession
+      except (Exception,OSError,ValueError) as err:
+        logexception(err)
+
+  except (Exception,OSError,ValueError) as err:
+    print ('At Exception')
+    logexception(err)
+  else:
+    dayav90days=tot90day/cnt90day
+    dayav30days=tot30day/cnt30day
+    dayav5days=tot5day/cnt5day
+
+    line1="Last Update Time {}".format(localtime())
+    line2="Last Year    {:>7.1f}kWh".format(totyear)
+    line3="Last 30 Days {:>7.1f}kWh".format(tot30day)
+    line4="Last 5 Days  {:>7.1f}kWh".format(tot5day)
+    line5="Current Day  {:>7.1f}kWh".format(tot1day)
+    line6="Last Session {:>7.1f}kWh".format(lastsession)
+    line7="Av. per day charging occurs over 90 days {:>4.4f}kWh".format(dayav90days)
+    line8="Av. per day charging occurs over 30 days {:>4.4f}kWh".format(dayav30days)
+    line9="Av. per day charging occurs over 5 days  {:>4.4f}kWh".format(dayav5days)
+    try:
+      with open("EnergyStats",'w') as f:
+        f.write("{0}\n{1}\n{2}\n{3}\n{4}\n{5}\n{6}\n{7}\n{8}\n".format(line1,line2,line3,line4,line5,line6,line7,line8,line9))
+    except (Exception,OSError,ValueError) as err:
+      logexception(err)

@@ -115,19 +115,11 @@ def calcduty():
 def stopcharge():
   global energytotal, currenttime, chargestarttime
   """store energy sent to car for last charging session"""
-
-  updatetotals(energytotal)
-  log('energy',' {:.3f}kWh Charge Start{} Charge Time {:.1f} hr'.format(energytotal,maketimestamp(localtime(chargestarttime)),(time()-chargestarttime)/3600))
-  try:
-    f=open('energyday.log','r')
-    pos=f.seek(-100,2)
-    enddata=f.read()
-    pos=enddata.index('\n')
-    if enddata[pos+1:pos+9]==localtimestamp()[0:8]:
-      pass
-  except:
-    pass
-
+  stoptime=time()
+  stoptimetup=localtime(stoptime)
+  stopday=stoptimetup[7]+int((stoptimetup[0]-2020)*365.25)
+  log('energy',' {:3d} {:7.3f}kWh Charge Time {:4.1f}hr'.format(stopday,energytotal,min((stoptime-chargestarttime)/3600,99)))
+  updatetotals(energytotal,stopday)
   energytotal =0.0
 
 def main():
@@ -141,6 +133,7 @@ def main():
     CPerror  = False
     state = 0 # charge state 1=Not connected, 2=EV connected, 3=EV charge, 4= Error
     lasttime=0
+    endday=False
     relayoff()
     ControlPilot.duty(CPidle)
     _,_,timestamp=deltapwr()
@@ -155,14 +148,24 @@ def main():
       pass
     while True:
       calcduty()
-      message='CP value={} CP duty={} ChargeI={} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
-              .format(CPvalue,ControlPilot.duty(),ChargeI,delta,state,energytotal,dayenergy)
+      currenttime=time()
+      currt=localtime(currenttime)
+      if currt[3]==23 and currt[4]==59 and endday==False:
+        endday=True
+        if dayenergy ==0:
+          chargestarttime=currenttime
+          stopcharge()
+      else:
+        endday=False
+
+      message='CP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
+              .format(CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state,energytotal,dayenergy)
       print (message)
       log('log',message)
       for i in range(nexttime*2):
         CPvalue=readCP()
-        message='Timestamp {}\nCP value={} CP duty={} ChargeI={} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
-                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,delta,state,energytotal,dayenergy)
+        message='Timestamp {}\nCP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
+                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state,energytotal,dayenergy)
         sendhtml(message)
         print(CPvalue,end='\r')
         if checkCPstate(EVnoconnect,CPvalue):
@@ -192,11 +195,9 @@ def main():
           ControlPilot.duty(duty)
           CPerror = False
           dotstar[0] =(0, 150, 0)
-          currenttime=time()
           if state != 3:
             log('events','EV charging')
             lastt=localtime(lasttime)
-            currt=localtime(currenttime)
             if lastt[0]!=currt[0] or lastt[1]!=currt[1] or lastt[2]!=currt[2]:
               dayenergy=0.0
             state =3
