@@ -28,6 +28,7 @@ TinyPICO.set_dotstar_power( True )
 # dotstar[0] = ( r, g, b, 0.5)
 dotstar[0] = ( 0, 0, 0)
 
+debug= False
 CPidle=1023
 EVnoconnect= 248 # 12V on CP line
 EVready= 155 # EV ready for charge
@@ -43,7 +44,7 @@ CPin = ADC(Pin(33))
 CPin.width(ADC.WIDTH_9BIT)
 TestOut = Pin(25,Pin.OUT, value=0)
 ChargeI = 0.0  # vehicle charging current
-ChargeIMax = 18.0  # maximum vehicle charge current
+ChargeIMax = 20.0  # maximum vehicle charge current
 VMains = 230.0 # mains voltage
 duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
@@ -60,6 +61,8 @@ def readCP():
   """Return voltage on CP line
      has to wait for CP PWM output to be high"""
 
+  if debug:
+    return 150
   for i in range(20):
     if CPstate.value() == False:
       break
@@ -103,7 +106,10 @@ def calcduty():
   """calculates new duty cycle after getting change variation from web"""
   global ChargeI,duty, delta, nexttime, timestamp
   delta, nexttime,timestamp =deltapwr()
-  ChargeI=min(max(ChargeI+delta/(1.5*VMains),0.0),ChargeIMax)
+  if delta > 0:
+    ChargeI=min(ChargeI+delta/(1.5*VMains),ChargeIMax)
+  else:
+    ChargeI=max(ChargeI+delta/(1.5*VMains),0.0)
   if ChargeI == 0.0 and delta < -3000.0:
     duty=1023
   elif ChargeI > 6.0:
@@ -206,7 +212,7 @@ def main():
 
           if duty !=1023:
             charge=30*duty/511
-            energydelta=min(charge,16.0)*VMains*(currenttime-lasttime)/3600000
+            energydelta=charge*VMains*(currenttime-lasttime)/3600000
             energytotal+=energydelta
             dayenergy+=energydelta
           lasttime=currenttime

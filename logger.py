@@ -81,7 +81,7 @@ def updatetotals(energy,stopday):
     with open("energy.log",'r') as f:
       f.seek(-energyrecsize,2) # point to last entry
       entry=f.read(energyrecsize)
-      print (entry,entry[15:19])
+#      print (entry,entry[15:19])
       lastsession=float(entry[20:27])
       cursession=int(entry[15:19])
       prevsession=cursession
@@ -112,14 +112,13 @@ def updatetotals(energy,stopday):
           prevsession=cursession
           f.seek(-2*energyrecsize,1)
           entry=f.read(energyrecsize)
-          print(entry,entry[15:19])
+#          print(entry,entry[15:19])
           cursession=int(entry[15:19]) # date of next charge session
           deltaday=stopday-cursession
       except (Exception,OSError,ValueError) as err:
         logexception(err)
 
   except (Exception,OSError,ValueError) as err:
-    print ('At Exception')
     logexception(err)
   else:
     dayav90days=tot90day/cnt90day

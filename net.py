@@ -18,16 +18,17 @@ import socket
 from select import poll,POLLIN
 from logger import log, logexception, localtimestamp
 
-addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+"""addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
 s = socket.socket()
 s.bind(addr)
 s.listen(1)
 poller=poll()
-poller.register(s, POLLIN)
+poller.register(s, POLLIN)"""
 
 def sendhtml(message):
   """sends status via HTMP to any device making a request on port 80"""
-  res = poller.poll(1)
+  pass
+"""  res = poller.poll(1)
   if res:
     try:
       cl, addr = s.accept()
@@ -41,7 +42,7 @@ def sendhtml(message):
       try:
         cl.close()
       except:
-        pass
+        pass"""
 
 numerrors =0
 nexttime =0
