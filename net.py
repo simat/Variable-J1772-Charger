@@ -18,17 +18,17 @@ import socket
 from select import poll,POLLIN
 from logger import log, logexception, localtimestamp
 
-"""addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
 s = socket.socket()
 s.bind(addr)
 s.listen(1)
 poller=poll()
-poller.register(s, POLLIN)"""
+poller.register(s, POLLIN)
 
 def sendhtml(message):
   """sends status via HTMP to any device making a request on port 80"""
-  pass
-"""  res = poller.poll(1)
+
+  res = poller.poll(1)
   if res:
     try:
       cl, addr = s.accept()
@@ -42,21 +42,24 @@ def sendhtml(message):
       try:
         cl.close()
       except:
-        pass"""
+        pass
 
 numerrors =0
 nexttime =0
 lasttime = ''
+minpwr=0
+delta=0
+timestamp =0
 def deltapwr():
-  """returns delta power level from net"""
+  """returns delta power and minimum power level from net"""
 
-  global lasttime, numerrors, nexttime, lasttime
+  global lasttime, numerrors, nexttime, lasttime, minpwr, delta, timestamp
 #  for tries in range(3):
   try:
     s=socket.socket()
     s.connect(('192.168.2.117',8080))
     s.send(bytes('GET /excesspwr.php \r\nHost: 192.168.2.117\r\n\r\n', 'utf8'))
-    data = str(s.recv(400), 'utf8')
+    data = str(s.recv(500), 'utf8')
 #      s.close()
 #      break
 #    except OSError as err:
@@ -76,10 +79,12 @@ def deltapwr():
     nexttime=max(min(int(timestamp)-currenttime+62,65),10)
     data=data[index+25:-1]
     data=data.split('</p>\n')
+#    print (currenttime, timestamp, nexttime, data)
     line1=float(data[1][31:data[1].index('W')])
     line2=float(data[2][31:data[2].index('W')])
-    print (currenttime, timestamp, nexttime, data[1])
-    if line1!=line2 or timestamp==lasttime:
+    line3=float(data[3][24:data[3].index('W')])
+    line4=float(data[4][24:data[4].index('W')])
+    if line1!=line2 or timestamp==lasttime or line3!=line4:
       raise Exception('Invalid or Stale Data')
   except (Exception,OSError,ValueError) as err:
     numerrors +=1
@@ -87,14 +92,15 @@ def deltapwr():
     timestamp=localtimestamp()
     logexception(err)
     if numerrors > 10:
-      delta=-30000 # shut down charging
+      minpwr = -1 # shut down charging
     else:
       delta= 0 # don't change charging current
   else:
     numerrors = 0
     lasttime=timestamp
     delta=line1
+    minpwr=line3
   finally:
     s.close()
 
-  return delta, nexttime, timestamp
+  return delta, nexttime, timestamp, minpwr

@@ -44,10 +44,12 @@ CPin = ADC(Pin(33))
 CPin.width(ADC.WIDTH_9BIT)
 TestOut = Pin(25,Pin.OUT, value=0)
 ChargeI = 0.0  # vehicle charging current
-ChargeIMax = 20.0  # maximum vehicle charge current
+ChargeIMax = 22.0  # maximum vehicle charge current
 VMains = 230.0 # mains voltage
 duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
+minpwr=0 # requested minimum charge power
+state=0 # charge state 1=Not connected, 2=EV connected, 3=EV charge, 4= Error
 nexttime =0 # seconds till next HTML sample
 timestamp=''
 currenttime=0
@@ -104,19 +106,20 @@ def relayoff():
 
 def calcduty():
   """calculates new duty cycle after getting change variation from web"""
-  global ChargeI,duty, delta, nexttime, timestamp
-  delta, nexttime,timestamp =deltapwr()
-  if delta > 0:
-    ChargeI=min(ChargeI+delta/(1.5*VMains),ChargeIMax)
-  else:
-    ChargeI=max(ChargeI+delta/(1.5*VMains),0.0)
-  if ChargeI == 0.0 and delta < -3000.0:
+  global ChargeI,duty, delta, nexttime, timestamp, minpwr, state
+  delta, nexttime,timestamp,minpwr =deltapwr()
+  if minpwr<0:
     duty=1023
-  elif ChargeI > 6.0:
-    duty=int(511*ChargeI/30.0)
+    ChargeI=0.0
   else:
-    if duty != 1023:
+    ChargeI=max(min(ChargeI+delta/(1.0*VMains),ChargeIMax),0.0)
+    if ChargeI > 6.0:
+      duty=int(511*ChargeI/30.0)
+    else:
       duty = 100
+      ChargeI =6.0
+  if state !=3:
+    ChargeI=0.0
 
 def stopcharge():
   global energytotal, currenttime, chargestarttime
@@ -124,13 +127,15 @@ def stopcharge():
   stoptime=time()
   stoptimetup=localtime(stoptime)
   stopday=stoptimetup[7]+int((stoptimetup[0]-2020)*365.25)
-  log('energy',' {:3d} {:7.3f}kWh Charge Time {:4.1f}hr'.format(stopday,energytotal,min((stoptime-chargestarttime)/3600,99)))
+  log('energy',' {:3d} {:7.3f}kWh Charge Time {:4.1f}hr'.\
+  format(stopday,energytotal,min((stoptime-chargestarttime)/3600,99)))
   updatetotals(energytotal,stopday)
   energytotal =0.0
 
 def main():
   try:
-    global duty, nexttime, timestamp, currenttime, energytotal, chargestarttime, dayenergy
+    global duty, nexttime, timestamp, currenttime, energytotal, chargestarttime,\
+           dayenergy, state
 
     dayenergy=0.0
     energytotal = 0.0
@@ -142,7 +147,7 @@ def main():
     endday=False
     relayoff()
     ControlPilot.duty(CPidle)
-    _,_,timestamp=deltapwr()
+    _,_,timestamp,_=deltapwr()
     print(timestamp)
     rtc=RTC()
     rtc.init((int(timestamp[0:4]),int(timestamp[4:6]),int(timestamp[6:8]),0, \
