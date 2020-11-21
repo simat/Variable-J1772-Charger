@@ -9,10 +9,10 @@ The format of the HTML file is fairly simple
 Current Time 20201121105845
 
 Timestamp 20201121105801
-Excess solar power available -105W
-Excess solar power available -105W
-Minimum demand energy 0W
-Minimum demand energy 0W
+Excess solar power available -105W  
+Excess solar power available -105W  
+Minimum demand energy 0W  
+Minimum demand energy 0W  
 
 The software uses this information to vary the duty cycle of the Control Pilot signal being sent to the EV as per the J1772 Standard https://en.wikipedia.org/wiki/SAE_J1772 which will vary the amount of power that the car will draw from the power supply.
 
