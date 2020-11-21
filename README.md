@@ -13,6 +13,16 @@ Excess solar power available -684W
 
 The software uses this information to vary the duty cycle of the Control Pilot signal being sent to the EV as per the J1772 Standard https://en.wikipedia.org/wiki/SAE_J1772 which will vary the amount of power that the car will draw from the power supply.
 
+The software returns status information about the charging to any request sent to port 80 (e.g.http://[IP address of TinyPICO]/)  
+**Timestamp 20201009125244 CP value=83 CP duty=158 ChargeI=9.4 Power=2.2 Delta=19 State=3 Energy=9.648 DayEnergy=11.5**
+
+There are a number of log files  
+**EnergyStats** gives summary of charge session averages and charge totals  
+**energy.log** is a log of all the individual charge sessions  
+**events.log** gives a list of charging events  
+**errors.log** gives a list of all errors  
+**log.log** gives a detailed log since the software was started
+
 The circuit supplied as part of the documentation and the software will not make a device that fully complies with the SAE J1772 standard. In particular it does not check for any faults in the AC supply. In Australia AC supply faults like ground faults are checked and handled at the power distribution panel. If you want a fully complient DIY controller I suggest you look here https://www.openevse.com/ They have some excellent documentation on their products and the J1772 standard here https://openev.freshdesk.com/support/home
 
 My project uses the Tini Pico microcontroller https://www.tinypico.com/ but you coul use a Raspberry PI, Beaglebone Black or any other microcontroller that runs Python 3.
