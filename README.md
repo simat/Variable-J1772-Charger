@@ -16,7 +16,7 @@ Minimum demand energy 0W
 
 The software uses this information to vary the duty cycle of the Control Pilot signal being sent to the EV as per the J1772 Standard https://en.wikipedia.org/wiki/SAE_J1772 which will vary the amount of power that the car will draw from the power supply.
 
-"Minimum demand energy" is the minumum power that the controller should be supplying to te car, a negative number means stop charging
+"Minimum demand energy" is the minumum power that the controller should be supplying to the car, a negative number means stop charging
 
 The software returns status information about the charging to any request sent to port 80 (e.g.http://[IP address of TinyPICO]/)  
 **Timestamp 20201009125244 CP value=83 CP duty=158 ChargeI=9.4 Power=2.2 Delta=19 State=3 Energy=9.648 DayEnergy=11.5**
