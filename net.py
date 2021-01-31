@@ -47,19 +47,19 @@ def sendhtml(message):
 numerrors =0
 nexttime =0
 lasttime = ''
-minpwr=0
+minmaxpwr=[0,0]
 delta=0
 timestamp =0
 def deltapwr():
   """returns delta power and minimum power level from net"""
 
-  global lasttime, numerrors, nexttime, lasttime, minpwr, delta, timestamp
+  global lasttime, numerrors, nexttime, lasttime, minmaxpwr, delta, timestamp
 #  for tries in range(3):
   try:
     s=socket.socket()
     s.connect(('192.168.2.117',8080))
     s.send(bytes('GET /excesspwr.php \r\nHost: 192.168.2.117\r\n\r\n', 'utf8'))
-    data = str(s.recv(500), 'utf8')
+    data = str(s.recv(600), 'utf8')
 #      s.close()
 #      break
 #    except OSError as err:
@@ -84,23 +84,26 @@ def deltapwr():
     line2=float(data[2][31:data[2].index('W')])
     line3=float(data[3][24:data[3].index('W')])
     line4=float(data[4][24:data[4].index('W')])
-    if line1!=line2 or timestamp==lasttime or line3!=line4:
+    line5=float(data[5][24:data[5].index('W')])
+    line6=float(data[6][24:data[6].index('W')])
+    if line1!=line2 or timestamp==lasttime or line3!=line4 or line5!=line6:
       raise Exception('Invalid or Stale Data')
   except (Exception,OSError,ValueError) as err:
     numerrors +=1
     nexttime=60
     timestamp=localtimestamp()
     logexception(err)
-    if numerrors > 10:
-      minpwr = -1 # shut down charging
+    if numerrors >= 10:
+      minmaxpwr = [0,0] # shut down charging
     else:
       delta= 0 # don't change charging current
   else:
     numerrors = 0
     lasttime=timestamp
     delta=line1
-    minpwr=line3
+    minmaxpwr[0]=line3
+    minmaxpwr[1]=line5
   finally:
     s.close()
 
-  return delta, nexttime, timestamp, minpwr
+  return delta, nexttime, timestamp, minmaxpwr

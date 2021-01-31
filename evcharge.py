@@ -48,7 +48,7 @@ ChargeIMax = 22.0  # maximum vehicle charge current
 VMains = 230.0 # mains voltage
 duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
-minpwr=0 # requested minimum charge power
+minmaxpwr=[0,0] # requested minimum and maximum charge power
 state=0 # charge state 1=Not connected, 2=EV connected, 3=EV charge, 4= Error
 nexttime =0 # seconds till next HTML sample
 timestamp=''
@@ -106,13 +106,13 @@ def relayoff():
 
 def calcduty():
   """calculates new duty cycle after getting change variation from web"""
-  global ChargeI,duty, delta, nexttime, timestamp, minpwr, state
-  delta, nexttime,timestamp,minpwr =deltapwr()
-  if minpwr<0:
+  global ChargeI,duty, delta, nexttime, timestamp, minmaxpwr, state
+  delta, nexttime,timestamp,minmaxpwr =deltapwr()
+  if minmaxpwr[1]==0:
     duty=1023
     ChargeI=0.0
   else:
-    ChargeI=max(min(ChargeI+delta/(1.0*VMains),ChargeIMax),0.0)
+    ChargeI=max(min(ChargeI+delta/(1.0*VMains),ChargeIMax,minmaxpwr[1]),0.0)
     if ChargeI > 6.0:
       duty=int(511*ChargeI/30.0)
     else:
