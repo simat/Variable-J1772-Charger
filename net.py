@@ -18,6 +18,7 @@ import socket
 from select import poll,POLLIN
 from logger import log, logexception, localtimestamp
 
+
 addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
 s = socket.socket()
 s.bind(addr)
@@ -77,15 +78,15 @@ def deltapwr():
     index=data.index('Timestamp')
     timestamp=data[index+10:index+24]
     nexttime=max(min(int(timestamp)-currenttime+62,65),10)
-    data=data[index+25:-1]
+    data=data[index+29:-1]
     data=data.split('</p>\n')
 #    print (currenttime, timestamp, nexttime, data)
-    line1=float(data[1][31:data[1].index('W')])
-    line2=float(data[2][31:data[2].index('W')])
-    line3=float(data[3][24:data[3].index('W')])
-    line4=float(data[4][24:data[4].index('W')])
-    line5=float(data[5][24:data[5].index('W')])
-    line6=float(data[6][24:data[6].index('W')])
+    line1=float(data[0][32:data[0].index('W')])
+    line2=float(data[1][32:data[1].index('W')])
+    line3=float(data[2][24:data[2].index('W')])
+    line4=float(data[3][24:data[3].index('W')])
+    line5=float(data[4][24:data[4].index('W')])
+    line6=float(data[5][24:data[5].index('W')])
     if line1!=line2 or timestamp==lasttime or line3!=line4 or line5!=line6:
       raise Exception('Invalid or Stale Data')
   except (Exception,OSError,ValueError) as err:

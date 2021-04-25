@@ -21,6 +21,13 @@ from dotstar import DotStar
 from net import deltapwr,sendhtml
 from logger import log, localtimestamp, maketimestamp, updatetotals, logexception
 from os import remove
+from ds18x20 import DS18X20
+from onewire import OneWire
+import config
+
+ds_pin = Pin(23)
+ds_sensor = DS18X20(OneWire(ds_pin))
+roms = ds_sensor.scan()
 # watchdog=WDT(timeout=600000) # timeout 10 minutes
 spi = SPI(sck=Pin( TinyPICO.DOTSTAR_CLK ), mosi=Pin( TinyPICO.DOTSTAR_DATA ), miso=Pin( TinyPICO.SPI_MISO) )
 dotstar = DotStar(spi, 1, brightness = 0.8 ) # Just one DotStar, half brightness
@@ -57,7 +64,9 @@ energytotal =0.0
 chargestarttime=0
 dayenergy=0.0 #current days energy production
 
-
+def readTemp(): # returns temperature from DX18x20 temp ds_sensor
+  ds_sensor.convert_temp()
+  return ds_sensor.read_temp(roms[0])
 
 def readCP():
   """Return voltage on CP line
@@ -107,7 +116,13 @@ def relayoff():
 def calcduty():
   """calculates new duty cycle after getting change variation from web"""
   global ChargeI,duty, delta, nexttime, timestamp, minmaxpwr, state
-  delta, nexttime,timestamp,minmaxpwr =deltapwr()
+  if config.config["StandAlone"]:
+    ChargeI=config.config["StandAloneCurrent"]
+    delta, nexttime,timestamp,minmaxpwr =0, 60, localtimestamp(),\
+    [0, ChargeI*VMains]
+  else:
+    delta, nexttime,timestamp,minmaxpwr =deltapwr()
+
   if minmaxpwr[1]==0:
     duty=1023
     ChargeI=0.0
@@ -169,14 +184,14 @@ def main():
       else:
         endday=False
 
-      message='CP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
-              .format(CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state,energytotal,dayenergy)
+      message='CP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Temp={} Energy={:.3f} DayEnergy={:.1f}' \
+              .format(CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state, int(readTemp()),energytotal,dayenergy)
       print (message)
       log('log',message)
       for i in range(nexttime*2):
         CPvalue=readCP()
-        message='Timestamp {}\nCP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Energy={:.3f} DayEnergy={:.1f}' \
-                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state,energytotal,dayenergy)
+        message='Timestamp {}\nCP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Temp={} Energy={:.3f} DayEnergy={:.1f}' \
+                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state,int(readTemp()),energytotal,dayenergy)
         sendhtml(message)
         print(CPvalue,end='\r')
         if checkCPstate(EVnoconnect,CPvalue):
