@@ -15,7 +15,7 @@
 
 
 from machine import Pin, PWM, ADC, SPI, WDT, RTC, reset
-from time import sleep_ms, sleep_us, time, localtime
+from utime import sleep_ms, sleep_us, time, localtime,ticks_ms,ticks_diff
 import tinypico as TinyPICO
 from dotstar import DotStar
 from net import deltapwr,sendhtml
@@ -35,16 +35,19 @@ TinyPICO.set_dotstar_power( True )
 # dotstar[0] = ( r, g, b, 0.5)
 dotstar[0] = ( 0, 0, 0)
 
-debug= False
+debug= True
 CPidle=1023
+EVzero=0 # value during zero PWM
 EVnoconnect= 248 # 12V on CP line
 EVready= 155 # EV ready for charge
 EVcharging= 85
 onevolt = (EVnoconnect-EVready)/3
 relay = PWM(Pin(27), freq=20000, duty=0)
+relay2 = PWM(Pin(14), freq=20000, duty=0)
+relay3 = PWM(Pin(4), freq=20000, duty=0)
 #CPout = Pin(14, Pin.OUT, value=1)
-ControlPilot = PWM(Pin(14), freq=1000, duty=CPidle)
-CPstate = Pin(15, Pin.IN)  # cant get state of CPoutput directly
+ControlPilot = PWM(Pin(15), freq=1000, duty=CPidle)
+#CPstate = Pin(15, Pin.IN)  # cant get state of CPoutput directly
 #ControlPilot.duty(1023)
 ProximityPilot = Pin(4, Pin.OUT, value=0)
 CPin = ADC(Pin(33))
@@ -68,27 +71,41 @@ def readTemp(): # returns temperature from DX18x20 temp ds_sensor
   ds_sensor.convert_temp()
   return ds_sensor.read_temp(roms[0])
 
-def readCP():
-  """Return voltage on CP line
-     has to wait for CP PWM output to be high"""
+okthreshold=5
+errorthreshold=3
+def readCP(numloops=100):
+  """Return voltage on CP line"""
 
-  if debug:
-    return 150
-  for i in range(20):
-    if CPstate.value() == False:
-      break
-    sleep_us(50)
+  arr=bytearray(300)
+  startt=ticks_ms()
 
-  for i in range(100):
-    if CPstate.value() == True:
-      break
-  sleep_us(950)
+  for i in range(numloops):
+   fred=CPin.read()
+   arr[fred]+=1
 
-  TestOut.on()
-#  sleep_us(50)
-  fred=CPin.read()
-  TestOut.off()
-  return fred
+  endt=ticks_ms()
+  validvals=[EVzero,EVnoconnect,EVready,EVcharging]
+  evstate=[0,0,0,0,numloops]
+  for j in range(4):
+   for i in range(int(validvals[j]-onevolt),int(min(validvals[j]+onevolt,255))):
+     evstate[j]+=arr[i]
+  for i in range(4):
+   evstate[4]-=evstate[i]
+  if config.config["debug"]:
+    print(ticks_diff(endt,startt),evstate)
+  if evstate[1]>=okthreshold and evstate[2]<errorthreshold and\
+                 evstate[3]<errorthreshold and evstate[4]<errorthreshold:
+    output=EVnoconnect
+  elif evstate[2]>=okthreshold and evstate[1]<errorthreshold and\
+                   evstate[4]<errorthreshold:
+    output=EVready
+  elif evstate[3]>=okthreshold and evstate[1]<errorthreshold and\
+                   evstate[2]<errorthreshold:
+    output=EVcharging
+  else:
+    output=-1
+
+  return output
 
 
 #  CPvalue = 0
