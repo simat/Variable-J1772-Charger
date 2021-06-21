@@ -17,7 +17,10 @@
 import socket
 from select import poll,POLLIN
 from logger import log, logexception, localtimestamp
-
+import network
+from _thread import start_new_thread as start
+import config
+from time import sleep_ms
 
 addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
 s = socket.socket()
@@ -25,6 +28,39 @@ s.bind(addr)
 s.listen(1)
 poller=poll()
 poller.register(s, POLLIN)
+connectssid=''
+wlan=''
+def startwifi():
+  """Starts WiFi"""
+
+  global connectssid,wlan
+  wlan = network.WLAN(network.STA_IF)
+  wlan.active(False)
+#  wlan.disconnect()
+  sleep_ms(10)
+  wlan.active(True)
+  sleep_ms(10)
+  stations=wlan.scan()
+  print ('scan',stations)
+  found=False
+  for i in stations:
+    for j in config.networks:
+      print('station:{} config:{}'.format(i[0].decode(),j))
+      if i[0].decode()==j:
+        found=True
+        break
+    if found:
+      break
+  if found:
+    connectssid=j
+    print(connectssid)
+    print(config.networks[connectssid],config.networks[connectssid]['passwrd'])
+    wlan.connect(connectssid,config.networks[connectssid]['passwrd'])
+  else:
+    wlan.active(False)
+    sleep_ms(10)
+    wlan = network.WLAN(network.AP_IF)
+    wlan.active(True)
 
 def sendhtml(message):
   """sends status via HTMP to any device making a request on port 80"""

@@ -13,7 +13,22 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import json
+StandAlone=False
+StandAloneCurrent=7
+debug=False
+log=False
+phases=(1,0,0)
+
+networks={'karrakwifi':{'passwrd':'tessisthebestdog',
+                        'excesspwrIPAdr':'192.168.2.117',
+                        'excesspwrIPPort':'8080'}
+				  }
+
+networkAP={'essid':'CarCharger',
+           'IPAddr':'192.18.4.1',
+					 'DNS':'8.8.8.8'}
+
+"""import json
 from _thread import start_new_thread as start
 from time import sleep
 from logger import logexception
@@ -32,4 +47,4 @@ def loopgetconfig():
 		getconfig()
 		sleep(180)
 
-start(loopgetconfig,())
+start(loopgetconfig,())"""

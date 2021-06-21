@@ -42,5 +42,9 @@ def check_ram():
 # Check the RAM
 check_ram()
 
-import evcharge
-evcharge.main()
+#from microWebSrv import MicroWebSrv
+#mws = MicroWebSrv(webPath='/')      # TCP port 80 and files in /
+#mws.Start(threaded=True) # Starts server in a new thread
+
+#import evcharge
+#evcharge.main()

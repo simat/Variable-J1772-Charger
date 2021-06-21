@@ -18,12 +18,13 @@ from machine import Pin, PWM, ADC, SPI, WDT, RTC, reset
 from utime import sleep_ms, sleep_us, time, localtime,ticks_ms,ticks_diff
 import tinypico as TinyPICO
 from dotstar import DotStar
-from net import deltapwr,sendhtml
+from net import deltapwr,sendhtml,wlan
 from logger import log, localtimestamp, maketimestamp, updatetotals, logexception
 from os import remove
 from ds18x20 import DS18X20
 from onewire import OneWire
 import config
+import sys
 
 ds_pin = Pin(23)
 ds_sensor = DS18X20(OneWire(ds_pin))
@@ -42,14 +43,12 @@ EVnoconnect= 248 # 12V on CP line
 EVready= 155 # EV ready for charge
 EVcharging= 85
 onevolt = (EVnoconnect-EVready)/3
-relay = PWM(Pin(27), freq=20000, duty=0)
-relay2 = PWM(Pin(14), freq=20000, duty=0)
-relay3 = PWM(Pin(4), freq=20000, duty=0)
+relays= (PWM(Pin(27), freq=20000, duty=0),PWM(Pin(14), freq=20000, duty=0),PWM(Pin(4), freq=20000, duty=0))
 #CPout = Pin(14, Pin.OUT, value=1)
 ControlPilot = PWM(Pin(15), freq=1000, duty=CPidle)
 #CPstate = Pin(15, Pin.IN)  # cant get state of CPoutput directly
 #ControlPilot.duty(1023)
-ProximityPilot = Pin(4, Pin.OUT, value=0)
+#ProximityPilot = Pin(4, Pin.OUT, value=0)
 CPin = ADC(Pin(33))
 CPin.width(ADC.WIDTH_9BIT)
 TestOut = Pin(25,Pin.OUT, value=0)
@@ -59,13 +58,6 @@ VMains = 230.0 # mains voltage
 duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
 minmaxpwr=[0,0] # requested minimum and maximum charge power
-state=0 # charge state 1=Not connected, 2=EV connected, 3=EV charge, 4= Error
-nexttime =0 # seconds till next HTML sample
-timestamp=''
-currenttime=0
-energytotal =0.0
-chargestarttime=0
-dayenergy=0.0 #current days energy production
 
 def readTemp(): # returns temperature from DX18x20 temp ds_sensor
   ds_sensor.convert_temp()
@@ -91,7 +83,7 @@ def readCP(numloops=100):
      evstate[j]+=arr[i]
   for i in range(4):
    evstate[4]-=evstate[i]
-  if config.config["debug"]:
+  if config.debug:
     print(ticks_diff(endt,startt),evstate)
   if evstate[1]>=okthreshold and evstate[2]<errorthreshold and\
                  evstate[3]<errorthreshold and evstate[4]<errorthreshold:
@@ -121,20 +113,27 @@ def checkCPstate(CPlevel, CPvalue):
   CPmatch=CPvalue > (CPlevel-onevolt) and CPvalue < (CPlevel+onevolt)
   return CPmatch
 
-def relayon(start=1023,hold=700):
-  if relay.duty()==0:
-    relay.duty(start)
-    sleep_ms(500)
-    relay.duty(hold)
+def relayson(phases=(1,0,0),start=1023,hold=700):
+  """turn on relays to phases specified by (P1,P2,P3)"""
+  for i in range(3):
+    if relays[i].duty()==0 and phases[i]:
+      relays[i].duty(start)
+  sleep_ms(500)
+  for i in range(3):
+    if phases[i]:
+      relays[i].duty(hold)
 
-def relayoff():
-  relay.duty(0)
+def relaysoff(phases=(1,1,1)):
+  """turn off relays to phases specified by (P1,P2,P3)"""
+
+  for i in range(3):
+    relays[i].duty(0)
 
 def calcduty():
   """calculates new duty cycle after getting change variation from web"""
   global ChargeI,duty, delta, nexttime, timestamp, minmaxpwr, state
-  if config.config["StandAlone"]:
-    ChargeI=config.config["StandAloneCurrent"]
+  if config.StandAlone:
+    ChargeI=config.StandAloneCurrent
     delta, nexttime,timestamp,minmaxpwr =0, 60, localtimestamp(),\
     [0, ChargeI*VMains]
   else:
@@ -177,8 +176,12 @@ def main():
     state = 0 # charge state 1=Not connected, 2=EV connected, 3=EV charge, 4= Error
     lasttime=0
     endday=False
-    relayoff()
+    relaysoff()
     ControlPilot.duty(CPidle)
+    for i in range(50):
+      if wlan.isconnected():
+        break
+      sleep_ms(100)
     _,_,timestamp,_=deltapwr()
     print(timestamp)
     rtc=RTC()
@@ -190,6 +193,8 @@ def main():
     except:
       pass
     while True:
+      del sys.modules['config']
+      import config
       calcduty()
       currenttime=time()
       currt=localtime(currenttime)
@@ -212,7 +217,7 @@ def main():
         sendhtml(message)
         print(CPvalue,end='\r')
         if checkCPstate(EVnoconnect,CPvalue):
-          relayoff()
+          relaysoff()
           ControlPilot.duty(1023)
           CPerror = False
           dotstar[0] =(100, 100, 150)
@@ -224,7 +229,7 @@ def main():
             state = 1
 
         elif checkCPstate(EVready,CPvalue):
-          relayoff()
+          relaysoff()
           ControlPilot.duty(duty)
           CPerror = False
           dotstar[0] =(0, 0, 150)
@@ -234,7 +239,7 @@ def main():
               stopcharge()
             state =2
         elif checkCPstate(EVcharging,CPvalue):
-          relayon()
+          relayson(phases=config.phases)
           ControlPilot.duty(duty)
           CPerror = False
           dotstar[0] =(0, 150, 0)
@@ -258,7 +263,7 @@ def main():
           if CPerror == False:
             CPerror = True
           else:
-            relayoff()
+            relaysoff()
             ControlPilot.duty(1023)
             dotstar[0] = (150, 0, 0)
             if state !=4:
