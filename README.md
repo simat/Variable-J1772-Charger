@@ -12,7 +12,7 @@ Timestamp 20201121105801
 Excess solar power available -105W  
 Excess solar power available -105W  
 Minimum demand energy 0W  
-Minimum demand energy 0W
+Minimum demand energy 0W  
 Maximum demand energy 5000W  
 Maximum demand energy 5000W  
 
