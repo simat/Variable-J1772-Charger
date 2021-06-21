@@ -13,8 +13,8 @@ Excess solar power available -105W
 Excess solar power available -105W  
 Minimum demand energy 0W  
 Minimum demand energy 0W
-Maximum demand energy 5000W
-Maximum demand energy 5000W
+Maximum demand energy 5000W  
+Maximum demand energy 5000W  
 
 The software uses this information to vary the duty cycle of the Control Pilot signal being sent to the EV as per the J1772 Standard https://en.wikipedia.org/wiki/SAE_J1772 which will vary the amount of power that the car will draw from the power supply.
 
