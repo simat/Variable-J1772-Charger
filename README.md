@@ -18,7 +18,7 @@ Maximum demand energy 5000W
 
 The software uses this information to vary the duty cycle of the Control Pilot signal being sent to the EV as per the J1772 Standard https://en.wikipedia.org/wiki/SAE_J1772 which will vary the amount of power that the car will draw from the power supply.
 
-"Minimum demand energy" is the minumum power that the controller should be supplying to the car
+"Minimum demand energy" is the minumum power that the controller should be supplying to the car  
 "Maximum demand energy" is the maximum power that the controller should be supplying to the car, 0W means no charging
 
 The software returns status information about the charging to any request sent to port 80 (e.g.http://[IP address of TinyPICO]/)  
