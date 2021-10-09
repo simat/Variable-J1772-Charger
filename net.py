@@ -94,7 +94,7 @@ def deltapwr():
 #  for tries in range(3):
   try:
     s=socket.socket()
-    s.connect(('192.168.2.117',8080))
+    s.connect((config.networks[connectssid]['excesspwrIPAdr'],config.networks[connectssid]['excesspwrIPPort']))
     s.send(bytes('GET /excesspwr.php \r\nHost: 192.168.2.117\r\n\r\n', 'utf8'))
     data = str(s.recv(600), 'utf8')
 #      s.close()
@@ -110,10 +110,12 @@ def deltapwr():
 
     index=data.index('Current Time')
     currenttime=int(data[index+13:index+27])
+    cutimestr=data[index+13:index+27]
     data=data[index+29:-1]
     index=data.index('Timestamp')
     timestamp=data[index+10:index+24]
     nexttime=max(min(int(timestamp)-currenttime+62,65),10)
+    print ("webtime {} datatime {} time {} nexttime {}".format(cutimestr[-4:],timestamp[-4:],localtimestamp()[-4:],nexttime))
     data=data[index+29:-1]
     data=data.split('</p>\n')
 #    print (currenttime, timestamp, nexttime, data)

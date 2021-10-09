@@ -46,5 +46,5 @@ check_ram()
 #mws = MicroWebSrv(webPath='/')      # TCP port 80 and files in /
 #mws.Start(threaded=True) # Starts server in a new thread
 
-#import evcharge
-#evcharge.main()
+import evcharge
+evcharge.main()

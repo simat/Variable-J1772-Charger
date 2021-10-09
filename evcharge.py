@@ -55,6 +55,7 @@ TestOut = Pin(25,Pin.OUT, value=0)
 ChargeI = 0.0  # vehicle charging current
 ChargeIMax = 22.0  # maximum vehicle charge current
 VMains = 230.0 # mains voltage
+ChargePwr = 0.0
 duty =100 # current CP PWM duty
 delta =0.0 # current delta power from web
 minmaxpwr=[0,0] # requested minimum and maximum charge power
@@ -131,7 +132,7 @@ def relaysoff(phases=(1,1,1)):
 
 def calcduty():
   """calculates new duty cycle after getting change variation from web"""
-  global ChargeI,duty, delta, nexttime, timestamp, minmaxpwr, state
+  global ChargeI, ChargePwr, duty, delta, nexttime, timestamp, minmaxpwr, state
   if config.StandAlone:
     ChargeI=config.StandAloneCurrent
     delta, nexttime,timestamp,minmaxpwr =0, 60, localtimestamp(),\
@@ -151,13 +152,14 @@ def calcduty():
       ChargeI =6.0
   if state !=3:
     ChargeI=0.0
+  ChargePwr=ChargeI*VMains*config.numphases/1000
 
 def stopcharge():
   global energytotal, currenttime, chargestarttime
   """store energy sent to car for last charging session"""
   stoptime=time()
   stoptimetup=localtime(stoptime)
-  stopday=stoptimetup[7]+int((stoptimetup[0]-2020)*365.25)
+  stopday=max(0,stoptimetup[7]+int((stoptimetup[0]-2020)*365.25))
   log('energy',' {:3d} {:7.3f}kWh Charge Time {:4.1f}hr'.\
   format(stopday,energytotal,min((stoptime-chargestarttime)/3600,99)))
   updatetotals(energytotal,stopday)
@@ -206,16 +208,16 @@ def main():
       else:
         endday=False
 
-      message='CP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Temp={} Energy={:.3f} DayEnergy={:.1f}' \
-              .format(CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state, int(readTemp()),energytotal,dayenergy)
-      print (message)
-      log('log',message)
       for i in range(nexttime*2):
+        startt=ticks_ms()
         CPvalue=readCP()
         message='Timestamp {}\nCP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Temp={} Energy={:.3f} DayEnergy={:.1f}' \
-                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargeI*VMains/1000.0,int(delta),state,int(readTemp()),energytotal,dayenergy)
+                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargePwr,int(delta),state,int(readTemp()),energytotal,dayenergy)
         sendhtml(message)
-        print(CPvalue,end='\r')
+        if i==2:
+          print (message[25:])
+          log('log',message)
+        print(CPvalue,end=' ')
         if checkCPstate(EVnoconnect,CPvalue):
           relaysoff()
           ControlPilot.duty(1023)
@@ -239,7 +241,8 @@ def main():
               stopcharge()
             state =2
         elif checkCPstate(EVcharging,CPvalue):
-          relayson(phases=config.phases)
+          if state !=3:
+            relayson(phases=config.phases)
           ControlPilot.duty(duty)
           CPerror = False
           dotstar[0] =(0, 150, 0)
@@ -252,11 +255,9 @@ def main():
             lasttime=currenttime
             chargestarttime=lasttime
 
-          if duty !=1023:
-            charge=30*duty/511
-            energydelta=charge*VMains*(currenttime-lasttime)/3600000
-            energytotal+=energydelta
-            dayenergy+=energydelta
+          energydelta=ChargePwr*(currenttime-lasttime)/3600
+          energytotal+=energydelta
+          dayenergy+=energydelta
           lasttime=currenttime
 
         else:  #error
@@ -272,7 +273,9 @@ def main():
                 print ('at error')
                 stopcharge()
               state =4
-        sleep_ms(500)
+        wrktime=ticks_diff(ticks_ms(),startt)
+        sleep_ms(500-wrktime)
+        print (wrktime,end=' \r')
   except Exception as e:
     logexception(e)
     raise

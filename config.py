@@ -1,4 +1,4 @@
-# *****J1772 EV charge controller config parser*****
+  # *****J1772 EV charge controller config parser*****
 # Copyright (C) 2021 Simon Richard Matthews
 # Project loaction https://github.com/simat/Variable-J1772-Charger
 # This program is free software; you can redistribute it and/or modify
@@ -14,14 +14,21 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 StandAlone=False
-StandAloneCurrent=7
+StandAloneCurrent=25
 debug=False
 log=False
 phases=(1,0,0)
+numphases=0
+for i in phases:
+  if i:
+    numphases+=1
 
 networks={'karrakwifi':{'passwrd':'tessisthebestdog',
                         'excesspwrIPAdr':'192.168.2.117',
-                        'excesspwrIPPort':'8080'}
+                        'excesspwrIPPort':'80'},
+          'Optus_8429':{'passwrd':'80638429',
+                        'excesspwrIPAdr':'192.168.1.152',
+                        'excesspwrIPPort':'80'}
 				  }
 
 networkAP={'essid':'CarCharger',
