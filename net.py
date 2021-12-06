@@ -34,21 +34,42 @@ def startwifi():
   """Starts WiFi"""
 
   global connectssid,wlan
-  wlan = network.WLAN(network.STA_IF)
-  wlan.active(False)
-#  wlan.disconnect()
-  sleep_ms(10)
-  wlan.active(True)
-  sleep_ms(10)
-  stations=wlan.scan()
-  print ('scan',stations)
-  found=False
-  for i in stations:
-    for j in config.networks:
-      print('station:{} config:{}'.format(i[0].decode(),j))
-      if i[0].decode()==j:
-        found=True
-        break
+
+  numtries=3
+  while numtries > 0:
+    numtries-=1
+    try:
+      wlan = network.WLAN(network.STA_IF)
+      wlan.active(False)
+    #  wlan.disconnect()
+      sleep_ms(10)
+      wlan.active(True)
+      sleep_ms(10)
+      stations=wlan.scan()
+      print ('scan',stations)
+      found=False
+      for i in stations:
+        for j in config.networks:
+          print('station:{} config:{}'.format(i[0].decode(),j))
+          if i[0].decode()==j:
+            found=True
+            break
+        if found:
+          break
+        numloops=30
+        while numloops >0:
+          numloops-=1
+          if wlan.isconnected:
+            break
+          sleep_ms(100)
+        if numloops ==0:
+          raise IOError("Didn't connect to wlan")
+
+    except KeyboardInterrupt:
+      raise
+    except Exception as err:
+      print (err)
+      sleep_ms(1000)
     if found:
       break
   if found:
@@ -56,11 +77,13 @@ def startwifi():
     print(connectssid)
     print(config.networks[connectssid],config.networks[connectssid]['passwrd'])
     wlan.connect(connectssid,config.networks[connectssid]['passwrd'])
+    sleep_ms(5000)
   else:
     wlan.active(False)
     sleep_ms(10)
     wlan = network.WLAN(network.AP_IF)
     wlan.active(True)
+
 
 def sendhtml(message):
   """sends status via HTMP to any device making a request on port 80"""

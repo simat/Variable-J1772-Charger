@@ -18,13 +18,20 @@ from machine import Pin, PWM, ADC, SPI, WDT, RTC, reset
 from utime import sleep_ms, sleep_us, time, localtime,ticks_ms,ticks_diff
 import tinypico as TinyPICO
 from dotstar import DotStar
-from net import deltapwr,sendhtml,wlan
+from net import deltapwr,sendhtml,wlan, connectssid
 from logger import log, localtimestamp, maketimestamp, updatetotals, logexception
 from os import remove
 from ds18x20 import DS18X20
 from onewire import OneWire
 import config
 import sys
+import mqtt
+
+mqttclient=mqtt.MQTTClient('CarCharger',config.networks[connectssid]['MQTTAddr'],\
+user=config.networks[connectssid]['MQTTuser'],\
+password=config.networks[connectssid]['MQTTpassword'])
+mqttclient.connect()
+
 
 ds_pin = Pin(23)
 ds_sensor = DS18X20(OneWire(ds_pin))
@@ -144,7 +151,7 @@ def calcduty():
     duty=1023
     ChargeI=0.0
   else:
-    ChargeI=max(min(ChargeI+delta/(1.0*VMains),ChargeIMax,minmaxpwr[1]),0.0)
+    ChargeI=max(min(ChargeI+delta/(1.0*VMains),ChargeIMax,minmaxpwr[1]/(VMains*1)),0.0)
     if ChargeI > 6.0:
       duty=int(511*ChargeI/30.0)
     else:
@@ -211,11 +218,15 @@ def main():
       for i in range(nexttime*2):
         startt=ticks_ms()
         CPvalue=readCP()
+        temperature=int(readTemp())
         message='Timestamp {}\nCP value={} CP duty={} ChargeI={:.1f} Power={:.1f} Delta={} State={} Temp={} Energy={:.3f} DayEnergy={:.1f}' \
-                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargePwr,int(delta),state,int(readTemp()),energytotal,dayenergy)
+                .format(localtimestamp(),CPvalue,ControlPilot.duty(),ChargeI,ChargePwr,int(delta),state,temperature,energytotal,dayenergy)
         sendhtml(message)
         if i==2:
           print (message[25:])
+          mqttclient.publish('carcharger','{{"CPValue": {}, "Power": {:.1f}, "Delta": {}, "State": {}, "Temp": {}, "dayenergy": {:.3f}}}'\
+                            .format(CPvalue,ChargePwr,int(delta),state,temperature,dayenergy))
+
           log('log',message)
         print(CPvalue,end=' ')
         if checkCPstate(EVnoconnect,CPvalue):

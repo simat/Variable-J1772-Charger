@@ -23,13 +23,23 @@ for i in phases:
   if i:
     numphases+=1
 
-networks={'karrakwifi':{'passwrd':'tessisthebestdog',
-                        'excesspwrIPAdr':'192.168.2.117',
-                        'excesspwrIPPort':'80'},
-          'Optus_8429':{'passwrd':'80638429',
-                        'excesspwrIPAdr':'192.168.1.152',
-                        'excesspwrIPPort':'80'}
-				  }
+  networks={'karrakwifi':{'passwrd':'tessisthebestdog',
+                          'excesspwrIPAdr':'192.168.2.117',
+                          'excesspwrIPPort':'80',
+                          'CurrentMax':'22',
+                          'OnePhase':'(1,0,0)',
+                          'MQTTAddr':'192.168.2.123',
+                          'MQTTuser':'simat',
+                          'MQTTpassword':'simat6811'},
+            'Optus_8429':{'passwrd':'80638429',
+                          'excesspwrIPAdr':'192.168.1.152',
+                          'excesspwrIPPort':'80',
+                          'CurrentMax':'20',
+                          'OnePhase':'(0,0,1)',
+                          'MQTTAddr':'192.168.1.152',
+                          'MQTTuser':None,
+                          'MQTTpassword':None},
+  				  }
 
 networkAP={'essid':'CarCharger',
            'IPAddr':'192.18.4.1',
